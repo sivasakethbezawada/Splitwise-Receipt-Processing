@@ -254,6 +254,7 @@ async def create_expense(background_tasks: BackgroundTasks, expenseData: Expense
             groupId=expenseData.groupId,
             totalAmount=total_owed,
             description=expenseData.description,
+            details=expenseData.details,
             userSplits=expenseData.userSplits,
             receipt=expenseData.receiptPath
         )

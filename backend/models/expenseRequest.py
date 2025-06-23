@@ -9,6 +9,7 @@ class userSplit(BaseModel):
 
 class ExpenseRequest(BaseModel):
     description: str
+    details: str
     payer: int
     totalAmount: float
     tax: float

@@ -122,6 +122,7 @@ class SplitwiseManager:
                       groupId: int, 
                       totalAmount: float, 
                       description: str, 
+                      details: str | None,
                       userSplits: List[Any], 
                       receipt: Optional[str] = None
                       ) -> Tuple[Optional[int], Optional[str]]:
@@ -131,6 +132,7 @@ class SplitwiseManager:
         Args:
             groupId: The Splitwise group ID
             totalAmount: Total cost of the expense
+            details: additonal details for the expense
             description: Description of the expense
             userSplits: List of userSplit objects with payment information
             receipt: Optional path to receipt image file
@@ -167,6 +169,7 @@ class SplitwiseManager:
             exp.setGroupId(groupId)
             exp.setCost(totalAmount)
             exp.setDescription(description)
+            exp.setDetails(details or "")
             
             # Check receipt existence once before setting
             receipt_exists = receipt and os.path.exists(receipt)

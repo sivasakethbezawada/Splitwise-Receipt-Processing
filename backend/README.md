@@ -159,6 +159,7 @@ You can modify the group mapping in `splitwiseManager.py` if needed.
   ```json
     {
       "description": "Grocery Shopping",
+      "details": "ABC - user 1, user2",
       "payer": 12345,
       "totalAmount": 42.56,
       "tax": 3.56,
@@ -221,6 +222,7 @@ You can modify the group mapping in `splitwiseManager.py` if needed.
         -H "Content-Type: application/json" \
         -d '{
           "description": "Grocery Shopping",
+          "details": "ABC - user 1, user2",
           "payer": 12345,
           "totalAmount": 42.56,
           "tax": 3.56,

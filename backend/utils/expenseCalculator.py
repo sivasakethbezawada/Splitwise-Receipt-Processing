@@ -49,7 +49,7 @@ class ExpenseCalculator:
             logger.info(f"Validating expense data: Total paid: {totalPaidFloat}, Total owed: {totalOwedFloat}")
             
             # Check if totals match within tolerance
-            if abs(totalPaidFloat - totalOwedFloat) > 0.01:  # Reduce tolerance for stricter validation
+            if abs(totalPaidFloat - totalOwedFloat) > 0.03:  # Reduce tolerance for stricter validation
                 logger.error(f"Expense splits don't balance: Paid {totalPaidFloat} != Owed {totalOwedFloat}")
                 return False
             

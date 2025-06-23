@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { Percent, AlertCircle } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
@@ -39,6 +39,7 @@ interface ProductCardProps {
   updateSharePercentage: (productId: string, userId: string, percentage: number) => void
   distributeEqually: (productId: string) => void
   balanceRemainingPercentage: (productId: string) => void
+  updateProductPrice: (productId: string, newPrice: string) => void
 }
 
 function ProductCardComponent({
@@ -50,7 +51,20 @@ function ProductCardComponent({
   updateSharePercentage,
   distributeEqually,
   balanceRemainingPercentage,
+  updateProductPrice,
 }: ProductCardProps) {
+  const [isEditingPrice, setIsEditingPrice] = useState(false)
+  const [tempPrice, setTempPrice] = useState(product.price.replace("$", ""))
+
+  const handlePriceUpdate = (newPrice: string) => {
+    const numericPrice = Number.parseFloat(newPrice)
+    if (!isNaN(numericPrice) && numericPrice >= 0) {
+      // Update the product price through a callback prop
+      updateProductPrice(product.id, numericPrice.toFixed(2))
+      setIsEditingPrice(false)
+    }
+  }
+
   // Safely get total percentage with error handling
   const getTotalPercentage = useCallback(() => {
     try {
@@ -128,7 +142,40 @@ function ProductCardComponent({
               <h3 className="font-medium text-sm sm:text-base truncate" title={product.name || "Unnamed Product"}>
                 {product.name || "Unnamed Product"}
               </h3>
-              <p className="text-primary font-bold text-sm sm:text-base">{product.price || "$0.00"}</p>
+              {isEditingPrice ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-sm">$</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={tempPrice}
+                    onChange={(e) => setTempPrice(e.target.value)}
+                    onBlur={() => handlePriceUpdate(tempPrice)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handlePriceUpdate(tempPrice)
+                      } else if (e.key === "Escape") {
+                        setTempPrice(product.price.replace("$", ""))
+                        setIsEditingPrice(false)
+                      }
+                    }}
+                    className="w-16 sm:w-20 h-6 text-sm"
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <p
+                  className="text-primary font-bold text-sm sm:text-base cursor-pointer hover:bg-primary/10 rounded px-1 -mx-1"
+                  onClick={() => {
+                    setTempPrice(product.price.replace("$", ""))
+                    setIsEditingPrice(true)
+                  }}
+                  title="Click to edit price"
+                >
+                  {product.price || "$0.00"}
+                </p>
+              )}
             </div>
 
             {product.shares.length > 0 && (

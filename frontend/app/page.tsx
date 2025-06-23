@@ -32,6 +32,8 @@ import { EmptyState } from "../components/empty-state"
 import { ErrorBoundary } from "../components/error-boundary"
 import { ProductCard } from "../components/product-card"
 import { BillSummary } from "../components/bill-summary"
+import { EditableTotal } from "../components/editable-total"
+import { AssignmentSummary } from "../components/assignment-summary"
 
 // Updated interface for user assignments with share percentages
 interface UserShare {
@@ -75,6 +77,7 @@ interface ExpenseRequest {
   userSplits: UserSplit[]
   groupId: string
   receiptPath: string
+  details: string
 }
 
 interface Group {
@@ -341,6 +344,40 @@ function ImageUploadSearch() {
     // Keep users and payer for convenience
   }, [uploadedImages])
 
+  // Recalculate subtotal from assigned items
+  const recalculateSubtotalFromItems = useCallback(() => {
+    try {
+      const assignedTotal = products.reduce((total, product) => {
+        const price = Number.parseFloat(product.price.replace("$", "")) || 0
+
+        // Only count items that are assigned (have shares)
+        if (product.shares.length > 0) {
+          return total + price
+        }
+
+        return total
+      }, 0)
+
+      // Update subtotal
+      setSubtotal(assignedTotal.toFixed(2))
+
+      // Recalculate tax and total
+      if (taxInfo) {
+        const newTaxAmount = assignedTotal * taxInfo.rate
+        const newTotal = assignedTotal + newTaxAmount
+
+        setTaxInfo({
+          ...taxInfo,
+          amount: newTaxAmount.toFixed(2),
+        })
+        setTotal(newTotal.toFixed(2))
+      }
+    } catch (error) {
+      console.error("Error recalculating subtotal from items:", error)
+      setError("An error occurred while recalculating the subtotal")
+    }
+  }, [products, taxInfo])
+
   // Create expense
   const createExpense = async () => {
     // Check for required information with specific error messages
@@ -396,7 +433,26 @@ function ImageUploadSearch() {
         }
       })
 
-      // Create expense request
+      // Generate split details for all items
+      const splitDetails = products
+        .map((product) => {
+          if (product.shares.length === 0) {
+            return `'${product.name}' - "unassigned"`
+          }
+
+          // Get user names for this product's shares
+          const assignedUsers = product.shares
+            .map((share) => {
+              const user = users.find((u) => u.id === share.userId)
+              return user ? user.name : "Unknown User"
+            })
+            .join(", ")
+
+          return `${product.name} -${assignedUsers}`
+        })
+        .join("\n")
+
+      // Add split details to the expense request
       const expenseRequest: ExpenseRequest = {
         description: expenseDescription,
         payer: payer,
@@ -405,6 +461,7 @@ function ImageUploadSearch() {
         userSplits,
         groupId: selectedGroup,
         receiptPath: primaryReceiptPath || "", // Use the primary receipt path from the API
+        details: splitDetails, // Add the split details
       }
 
       console.log("Creating expense with receipt path:", primaryReceiptPath)
@@ -450,10 +507,24 @@ function ImageUploadSearch() {
               const isAssigned = product.shares.some((share) => share.userId === userId)
 
               if (isAssigned) {
-                // Remove user from shares
+                // Remove user from shares and recalculate remaining shares
+                const remainingShares = product.shares.filter((share) => share.userId !== userId)
+
+                if (remainingShares.length === 0) {
+                  return {
+                    ...product,
+                    shares: [],
+                  }
+                }
+
+                // Redistribute percentages equally among remaining users
+                const equalPercentage = 100 / remainingShares.length
                 return {
                   ...product,
-                  shares: product.shares.filter((share) => share.userId !== userId),
+                  shares: remainingShares.map((share, index) => ({
+                    ...share,
+                    percentage: Math.floor(equalPercentage) + (index < 100 % remainingShares.length ? 1 : 0),
+                  })),
                 }
               } else {
                 // Add user with equal share
@@ -463,7 +534,10 @@ function ImageUploadSearch() {
                 const equalPercentage = 100 / newShares.length
                 return {
                   ...product,
-                  shares: newShares.map((share) => ({ ...share, percentage: equalPercentage })),
+                  shares: newShares.map((share, index) => ({
+                    ...share,
+                    percentage: Math.floor(equalPercentage) + (index < 100 % newShares.length ? 1 : 0),
+                  })),
                 }
               }
             }
@@ -640,6 +714,52 @@ function ImageUploadSearch() {
     },
     [products],
   )
+
+  // Update product price
+  const updateProductPrice = useCallback(
+    (productId: string, newPrice: string) => {
+      try {
+        setProducts(
+          products.map((product) => {
+            if (product.id === productId) {
+              return {
+                ...product,
+                price: `$${newPrice}`,
+              }
+            }
+            return product
+          }),
+        )
+      } catch (error) {
+        console.error("Error updating product price:", error)
+        setError("An error occurred while updating the price")
+      }
+    },
+    [products],
+  )
+
+  // Recalculate totals based on current product prices
+  const recalculateTotals = useCallback(() => {
+    try {
+      const newSubtotal = products.reduce((sum, product) => {
+        return sum + (Number.parseFloat(product.price.replace("$", "")) || 0)
+      }, 0)
+
+      const newTaxAmount = taxInfo ? newSubtotal * taxInfo.rate : 0
+      const newTotal = newSubtotal + newTaxAmount
+
+      setSubtotal(newSubtotal.toFixed(2))
+      if (taxInfo) {
+        setTaxInfo({
+          ...taxInfo,
+          amount: newTaxAmount.toFixed(2),
+        })
+      }
+      setTotal(newTotal.toFixed(2))
+    } catch (error) {
+      console.error("Error recalculating totals:", error)
+    }
+  }, [products, taxInfo])
 
   // Get user's subtotal (without tax)
   const getUserSubtotal = useCallback(
@@ -1143,6 +1263,15 @@ function ImageUploadSearch() {
             </div>
           )}
 
+          {/* Assignment Summary - NEW COMPONENT */}
+          {products.length > 0 && subtotal && (
+            <AssignmentSummary
+              products={products}
+              subtotal={subtotal}
+              onRecalculateSubtotal={recalculateSubtotalFromItems}
+            />
+          )}
+
           {/* Products Section - Responsive grid */}
           {products.length > 0 ? (
             <ErrorBoundary>
@@ -1167,6 +1296,7 @@ function ImageUploadSearch() {
                         updateSharePercentage={updateSharePercentage}
                         distributeEqually={distributeEqually}
                         balanceRemainingPercentage={balanceRemainingPercentage}
+                        updateProductPrice={updateProductPrice}
                       />
                     </ErrorBoundary>
                   ))}
@@ -1202,6 +1332,27 @@ function ImageUploadSearch() {
             </ErrorBoundary>
           )}
 
+          {/* Editable Total Section */}
+          {products.length > 0 && taxInfo && (
+            <Card className="mb-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base sm:text-lg">Total Amount</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <EditableTotal
+                  subtotal={subtotal || "0.00"}
+                  taxInfo={taxInfo}
+                  total={total || "0.00"}
+                  onUpdateTotal={(newSubtotal, newTax, newTotal) => {
+                    setSubtotal(newSubtotal)
+                    setTaxInfo({ ...taxInfo, amount: newTax })
+                    setTotal(newTotal)
+                  }}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           {/* Create Expense Button - Mobile optimized */}
           {products.length > 0 && (
             <div className="sticky bottom-2 sm:bottom-3 flex justify-center px-4 sm:px-0">
@@ -1215,13 +1366,13 @@ function ImageUploadSearch() {
                   >
                     {isSaving ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         <span className="hidden sm:inline">Saving...</span>
                         <span className="sm:hidden">Saving</span>
                       </>
                     ) : (
                       <>
-                        <Save className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                        <Save className="mr-2 h-4 w-4" />
                         <span className="hidden sm:inline">Create Expense</span>
                         <span className="sm:hidden">Create</span>
                       </>
