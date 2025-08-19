@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+// Get the API base URL from environment variables with fallback
+const API_BASE_URL = process.env.SPLIT_API_BASE_URL || 'http://localhost:8000'
+
 // This is now a proxy to the external API
 export async function POST(request: NextRequest) {
   try {
@@ -10,10 +13,9 @@ export async function POST(request: NextRequest) {
     if (!expenseData.receiptPath) {
       expenseData.receiptPath = "" // Set empty string if missing
     }
-
     // The request body should already be in the correct format
     // Just forward it to the external API
-    const response = await fetch("http://localhost:8000/expenses", {
+    const response = await fetch(`${API_BASE_URL}/expenses`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

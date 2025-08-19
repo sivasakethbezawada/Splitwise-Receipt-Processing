@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+// Get the API base URL from environment variables with fallback
+const API_BASE_URL = process.env.SPLIT_API_BASE_URL || 'http://localhost:8000'
+
+
 // This is now a proxy to the external API
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +31,7 @@ export async function POST(request: NextRequest) {
     apiFormData.append("multipleReceipts", "true") // Flag to indicate multiple receipts
 
     // Call the external API
-    const response = await fetch("http://localhost:8000/imageUpload", {
+    const response = await fetch(`${API_BASE_URL}/imageUpload`, {
       method: "POST",
       body: apiFormData,
     })
