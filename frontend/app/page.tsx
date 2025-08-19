@@ -74,6 +74,9 @@ interface ExpenseRequest {
   payer: string | number
   totalAmount: number
   tax: number
+  discount?: number
+  tip?: number
+  serviceCharge?: number
   userSplits: UserSplit[]
   groupId: string
   receiptPath: string
@@ -122,6 +125,7 @@ function ImageUploadSearch() {
   const [taxInfo, setTaxInfo] = useState<TaxInfo | null>(null)
   const [subtotal, setSubtotal] = useState<string | null>(null)
   const [total, setTotal] = useState<string | null>(null)
+  const [discount, setDiscount] = useState<string>("0.00")
   const [expenseDescription, setExpenseDescription] = useState<string>("")
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
   const [primaryReceiptPath, setPrimaryReceiptPath] = useState<string | null>(null)
@@ -131,6 +135,8 @@ function ImageUploadSearch() {
   const [showHelp, setShowHelp] = useState(false)
   const [groups, setGroups] = useState<Record<string, Group>>(DEFAULT_GROUPS)
   const [isLoadingGroups, setIsLoadingGroups] = useState(false)
+  const [tip, setTip] = useState<string>("0.00")
+  const [serviceCharge, setServiceCharge] = useState<string>("0.00")
 
   // Function to filter out "Non-group expenses" from groups
   const filterGroups = useCallback((groupsData: Record<string, Group>) => {
@@ -145,6 +151,180 @@ function ImageUploadSearch() {
 
     return filtered
   }, [])
+
+  // Calculate total percentage for a product
+  const getTotalPercentage = useCallback((product: Product) => {
+    try {
+      return product.shares.reduce((sum, share) => sum + (share.percentage || 0), 0)
+    } catch (error) {
+      console.error("Error calculating total percentage:", error)
+      return 0
+    }
+  }, [])
+
+  // Get user's subtotal (without tax or discount)
+  const getUserSubtotal = useCallback(
+    (userId: string) => {
+      try {
+        return Number(
+          products
+            .reduce((total, product) => {
+              // Find user's share for this product
+              const userShare = product.shares.find((share) => share.userId === userId)
+
+              // Skip if user is not assigned to this product
+              if (!userShare) return total
+
+              // Remove $ and convert to number
+              const price = Number.parseFloat(product.price.replace("$", "")) || 0
+
+              // Calculate user's portion based on percentage
+              const userPortion = price * ((userShare.percentage || 0) / 100)
+
+              return total + userPortion
+            }, 0)
+            .toFixed(2),
+        )
+      } catch (error) {
+        console.error("Error calculating user subtotal:", error)
+        return 0
+      }
+    },
+    [products],
+  )
+
+  // Calculate user's share of tax based on their proportion of the subtotal
+  const getUserTaxShare = useCallback(
+    (userId: string) => {
+      try {
+        if (!taxInfo) return 0
+
+        const userSubtotal = getUserSubtotal(userId)
+        const totalSubtotal = Number(
+          products
+            .reduce((sum, product) => {
+              return sum + (Number.parseFloat(product.price.replace("$", "")) || 0)
+            }, 0)
+            .toFixed(2),
+        )
+
+        // If no items are assigned, return 0
+        if (totalSubtotal === 0) return 0
+
+        // Calculate user's proportion of the total bill
+        const proportion = userSubtotal / totalSubtotal
+
+        // Calculate user's share of the tax
+        return Number((proportion * (Number.parseFloat(taxInfo.amount) || 0)).toFixed(2))
+      } catch (error) {
+        console.error("Error calculating user tax share:", error)
+        return 0
+      }
+    },
+    [getUserSubtotal, products, taxInfo],
+  )
+
+  // Calculate user's share of discount based on their proportion of the subtotal
+  const getUserDiscountShare = useCallback(
+    (userId: string) => {
+      try {
+        const discountAmount = Number.parseFloat(discount) || 0
+        if (discountAmount === 0) return 0
+
+        const userSubtotal = getUserSubtotal(userId)
+        const totalSubtotal = Number(
+          products
+            .reduce((sum, product) => {
+              return sum + (Number.parseFloat(product.price.replace("$", "")) || 0)
+            }, 0)
+            .toFixed(2),
+        )
+
+        // If no items are assigned, return 0
+        if (totalSubtotal === 0) return 0
+
+        // Calculate user's proportion of the total bill
+        const proportion = userSubtotal / totalSubtotal
+
+        // Calculate user's share of the discount
+        return Number((proportion * discountAmount).toFixed(2))
+      } catch (error) {
+        console.error("Error calculating user discount share:", error)
+        return 0
+      }
+    },
+    [getUserSubtotal, products, discount],
+  )
+
+  // Calculate user's share of tip (split equally among users with items)
+  const getUserTipShare = useCallback(
+    (userId: string) => {
+      try {
+        const tipAmount = Number.parseFloat(tip) || 0
+        if (tipAmount === 0) return 0
+
+        // Tip is split equally among all users who have items assigned
+        const usersWithItems = users.filter((user) =>
+          products.some((product) => product.shares.some((share) => share.userId === user.id)),
+        )
+
+        if (usersWithItems.length === 0) return 0
+
+        // Check if this user has items assigned
+        const userHasItems = products.some((product) => product.shares.some((share) => share.userId === userId))
+
+        return userHasItems ? Number((tipAmount / usersWithItems.length).toFixed(2)) : 0
+      } catch (error) {
+        console.error("Error calculating user tip share:", error)
+        return 0
+      }
+    },
+    [tip, users, products],
+  )
+
+  // Calculate user's share of service charge (split equally among users with items)
+  const getUserServiceChargeShare = useCallback(
+    (userId: string) => {
+      try {
+        const serviceChargeAmount = Number.parseFloat(serviceCharge) || 0
+        if (serviceChargeAmount === 0) return 0
+
+        // Service charge is split equally among all users who have items assigned
+        const usersWithItems = users.filter((user) =>
+          products.some((product) => product.shares.some((share) => share.userId === user.id)),
+        )
+
+        if (usersWithItems.length === 0) return 0
+
+        // Check if this user has items assigned
+        const userHasItems = products.some((product) => product.shares.some((share) => share.userId === userId))
+
+        return userHasItems ? Number((serviceChargeAmount / usersWithItems.length).toFixed(2)) : 0
+      } catch (error) {
+        console.error("Error calculating user service charge share:", error)
+        return 0
+      }
+    },
+    [serviceCharge, users, products],
+  )
+
+  // Get user's total including their share of tax, discount, tip, and service charge
+  const getUserTotal = useCallback(
+    (userId: string) => {
+      try {
+        const subtotal = getUserSubtotal(userId)
+        const taxShare = getUserTaxShare(userId)
+        const discountShare = getUserDiscountShare(userId)
+        const tipShare = getUserTipShare(userId)
+        const serviceChargeShare = getUserServiceChargeShare(userId)
+        return Number((subtotal + taxShare - discountShare + tipShare + serviceChargeShare).toFixed(2))
+      } catch (error) {
+        console.error("Error calculating user total:", error)
+        return 0
+      }
+    },
+    [getUserSubtotal, getUserTaxShare, getUserDiscountShare, getUserTipShare, getUserServiceChargeShare],
+  )
 
   // Check if all products are fully assigned and all shares total 100%
   const isFullyAssigned = useCallback(() => {
@@ -168,7 +348,7 @@ function ImageUploadSearch() {
       console.error("Error checking if fully assigned:", error)
       return false
     }
-  }, [products])
+  }, [products, getTotalPercentage])
 
   // Calculate the overall assignment progress
   const getAssignmentProgress = useCallback(() => {
@@ -187,7 +367,7 @@ function ImageUploadSearch() {
       console.error("Error calculating assignment progress:", error)
       return 0
     }
-  }, [products])
+  }, [products, getTotalPercentage])
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -292,11 +472,11 @@ function ImageUploadSearch() {
           setPayer(data.users[0].id)
         }
 
-        // Update products with empty shares
+        // Update products with empty shares - ensure no users are selected by default
         setProducts(
           (data.products || []).map((product: any) => ({
             ...product,
-            shares: [], // Initialize as empty array
+            shares: [], // Initialize as empty array - no users selected by default
           })),
         )
 
@@ -308,6 +488,38 @@ function ImageUploadSearch() {
         // Set subtotal and total
         setSubtotal(data.subtotal)
         setTotal(data.total)
+
+        // Calculate subtotal from products and override if different
+        const calculatedSubtotal = (data.products || []).reduce((sum: number, product: any) => {
+          return sum + (Number.parseFloat(product.price.replace("$", "")) || 0)
+        }, 0)
+
+        const responseSubtotal = Number.parseFloat(data.subtotal) || 0
+
+        // Override subtotal if calculated differs from response
+        if (Math.abs(calculatedSubtotal - responseSubtotal) > 0.01) {
+          console.log(`Overriding subtotal: Response=${responseSubtotal}, Calculated=${calculatedSubtotal}`)
+          setSubtotal(calculatedSubtotal.toFixed(2))
+
+          // Recalculate total with new subtotal
+          if (data.tax) {
+            const newTaxAmount = calculatedSubtotal * data.tax.rate
+            const discountAmount = 0 // No discount initially
+            const newTotal = calculatedSubtotal + newTaxAmount - discountAmount
+
+            setTaxInfo({
+              rate: data.tax.rate,
+              amount: newTaxAmount.toFixed(2),
+            })
+            setTotal(newTotal.toFixed(2))
+          }
+        }
+
+        // Reset additional charges when loading new data
+        setTip("0.00")
+        setServiceCharge("0.00")
+        // Reset discount when loading new data
+        setDiscount("0.00")
 
         // Store receipt paths
         setPrimaryReceiptPath(data.primaryReceiptPath || "")
@@ -340,6 +552,9 @@ function ImageUploadSearch() {
     setSubtotal(null)
     setTotal(null)
     setTaxInfo(null)
+    setDiscount("0.00")
+    setTip("0.00")
+    setServiceCharge("0.00")
     setExpenseDescription("")
     // Keep users and payer for convenience
   }, [uploadedImages])
@@ -364,7 +579,10 @@ function ImageUploadSearch() {
       // Recalculate tax and total
       if (taxInfo) {
         const newTaxAmount = assignedTotal * taxInfo.rate
-        const newTotal = assignedTotal + newTaxAmount
+        const discountAmount = Number.parseFloat(discount) || 0
+        const tipAmount = Number.parseFloat(tip) || 0
+        const serviceChargeAmount = Number.parseFloat(serviceCharge) || 0
+        const newTotal = assignedTotal + newTaxAmount - discountAmount + tipAmount + serviceChargeAmount
 
         setTaxInfo({
           ...taxInfo,
@@ -376,7 +594,7 @@ function ImageUploadSearch() {
       console.error("Error recalculating subtotal from items:", error)
       setError("An error occurred while recalculating the subtotal")
     }
-  }, [products, taxInfo])
+  }, [products, taxInfo, discount, tip, serviceCharge])
 
   // Create expense
   const createExpense = async () => {
@@ -448,7 +666,7 @@ function ImageUploadSearch() {
             })
             .join(", ")
 
-          return `${product.name} -${assignedUsers}`
+          return `'${product.name}' - "split between ${assignedUsers}"`
         })
         .join("\n")
 
@@ -458,10 +676,13 @@ function ImageUploadSearch() {
         payer: payer,
         totalAmount: Number(Number.parseFloat(total || "0").toFixed(2)),
         tax: Number(Number.parseFloat(taxInfo.amount || "0").toFixed(2)),
+        discount: Number(Number.parseFloat(discount || "0").toFixed(2)),
+        tip: Number(Number.parseFloat(tip || "0").toFixed(2)),
+        serviceCharge: Number(Number.parseFloat(serviceCharge || "0").toFixed(2)),
         userSplits,
         groupId: selectedGroup,
-        receiptPath: primaryReceiptPath || "", // Use the primary receipt path from the API
-        details: splitDetails, // Add the split details
+        receiptPath: primaryReceiptPath || "",
+        details: splitDetails,
       }
 
       console.log("Creating expense with receipt path:", primaryReceiptPath)
@@ -637,16 +858,6 @@ function ImageUploadSearch() {
     [products],
   )
 
-  // Calculate total percentage for a product
-  const getTotalPercentage = useCallback((product: Product) => {
-    try {
-      return product.shares.reduce((sum, share) => sum + (share.percentage || 0), 0)
-    } catch (error) {
-      console.error("Error calculating total percentage:", error)
-      return 0
-    }
-  }, [])
-
   // Balance remaining percentage among users
   const balanceRemainingPercentage = useCallback(
     (productId: string) => {
@@ -736,106 +947,6 @@ function ImageUploadSearch() {
       }
     },
     [products],
-  )
-
-  // Recalculate totals based on current product prices
-  const recalculateTotals = useCallback(() => {
-    try {
-      const newSubtotal = products.reduce((sum, product) => {
-        return sum + (Number.parseFloat(product.price.replace("$", "")) || 0)
-      }, 0)
-
-      const newTaxAmount = taxInfo ? newSubtotal * taxInfo.rate : 0
-      const newTotal = newSubtotal + newTaxAmount
-
-      setSubtotal(newSubtotal.toFixed(2))
-      if (taxInfo) {
-        setTaxInfo({
-          ...taxInfo,
-          amount: newTaxAmount.toFixed(2),
-        })
-      }
-      setTotal(newTotal.toFixed(2))
-    } catch (error) {
-      console.error("Error recalculating totals:", error)
-    }
-  }, [products, taxInfo])
-
-  // Get user's subtotal (without tax)
-  const getUserSubtotal = useCallback(
-    (userId: string) => {
-      try {
-        return Number(
-          products
-            .reduce((total, product) => {
-              // Find user's share for this product
-              const userShare = product.shares.find((share) => share.userId === userId)
-
-              // Skip if user is not assigned to this product
-              if (!userShare) return total
-
-              // Remove $ and convert to number
-              const price = Number.parseFloat(product.price.replace("$", "")) || 0
-
-              // Calculate user's portion based on percentage
-              const userPortion = price * ((userShare.percentage || 0) / 100)
-
-              return total + userPortion
-            }, 0)
-            .toFixed(2),
-        )
-      } catch (error) {
-        console.error("Error calculating user subtotal:", error)
-        return 0
-      }
-    },
-    [products],
-  )
-
-  // Calculate user's share of tax based on their proportion of the subtotal
-  const getUserTaxShare = useCallback(
-    (userId: string) => {
-      try {
-        if (!taxInfo) return 0
-
-        const userSubtotal = getUserSubtotal(userId)
-        const totalSubtotal = Number(
-          products
-            .reduce((sum, product) => {
-              return sum + (Number.parseFloat(product.price.replace("$", "")) || 0)
-            }, 0)
-            .toFixed(2),
-        )
-
-        // If no items are assigned, return 0
-        if (totalSubtotal === 0) return 0
-
-        // Calculate user's proportion of the total bill
-        const proportion = userSubtotal / totalSubtotal
-
-        // Calculate user's share of the tax
-        return Number((proportion * (Number.parseFloat(taxInfo.amount) || 0)).toFixed(2))
-      } catch (error) {
-        console.error("Error calculating user tax share:", error)
-        return 0
-      }
-    },
-    [getUserSubtotal, products, taxInfo],
-  )
-
-  // Get user's total including their share of tax
-  const getUserTotal = useCallback(
-    (userId: string) => {
-      try {
-        const subtotal = getUserSubtotal(userId)
-        const taxShare = getUserTaxShare(userId)
-        return Number((subtotal + taxShare).toFixed(2))
-      } catch (error) {
-        console.error("Error calculating user total:", error)
-        return 0
-      }
-    },
-    [getUserSubtotal, getUserTaxShare],
   )
 
   // Toggle share editing for a product
@@ -1194,7 +1305,7 @@ function ImageUploadSearch() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-7 px-2 text-xs"
+                                className="h-7 px-2 text-xs bg-transparent"
                                 onClick={() => splitAllEqually()}
                                 disabled={users.length === 0 || products.length === 0}
                               >
@@ -1326,6 +1437,9 @@ function ImageUploadSearch() {
                   taxInfo={taxInfo}
                   subtotal={subtotal || "0.00"}
                   total={total || "0.00"}
+                  discount={discount}
+                  tip={tip}
+                  serviceCharge={serviceCharge}
                   payer={payer}
                 />
               </Suspense>
@@ -1343,10 +1457,22 @@ function ImageUploadSearch() {
                   subtotal={subtotal || "0.00"}
                   taxInfo={taxInfo}
                   total={total || "0.00"}
-                  onUpdateTotal={(newSubtotal, newTax, newTotal) => {
+                  discount={discount}
+                  tip={tip}
+                  serviceCharge={serviceCharge}
+                  onUpdateTotal={(newSubtotal, newTax, newTotal, newDiscount, newTip, newServiceCharge) => {
                     setSubtotal(newSubtotal)
                     setTaxInfo({ ...taxInfo, amount: newTax })
                     setTotal(newTotal)
+                    if (newDiscount !== undefined) {
+                      setDiscount(newDiscount)
+                    }
+                    if (newTip !== undefined) {
+                      setTip(newTip)
+                    }
+                    if (newServiceCharge !== undefined) {
+                      setServiceCharge(newServiceCharge)
+                    }
                   }}
                 />
               </CardContent>

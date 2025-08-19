@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { Component, type ErrorInfo, type ReactNode } from "react"
-import { AlertCircle, RefreshCw } from 'lucide-react'
+import { AlertCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface ErrorBoundaryProps {
