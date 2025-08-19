@@ -1,3 +1,7 @@
+#Update on every change commited
+__version__ = "0.1.0"
+
+
 import asyncio
 import logging
 import os

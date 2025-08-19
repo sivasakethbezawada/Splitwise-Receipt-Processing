@@ -25,7 +25,7 @@ class Gemini:
     """
     
     def __init__(self, 
-                model: str = "gemini-2.5-flash-preview-04-17", 
+                model: str = "gemini-2.5-flash", 
                 temperature: float = 0, 
                 max_tokens: Optional[int] = None, 
                 timeout: int = 60,  # Added default timeout
