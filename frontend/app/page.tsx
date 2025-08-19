@@ -256,56 +256,68 @@ function ImageUploadSearch() {
     [getUserSubtotal, products, discount],
   )
 
-  // Calculate user's share of tip (split equally among users with items)
+  // Calculate user's share of tip based on their proportion of the subtotal (weighted)
   const getUserTipShare = useCallback(
     (userId: string) => {
       try {
         const tipAmount = Number.parseFloat(tip) || 0
         if (tipAmount === 0) return 0
 
-        // Tip is split equally among all users who have items assigned
-        const usersWithItems = users.filter((user) =>
-          products.some((product) => product.shares.some((share) => share.userId === user.id)),
+        const userSubtotal = getUserSubtotal(userId)
+        const totalSubtotal = Number(
+          products
+            .reduce((sum, product) => {
+              return sum + (Number.parseFloat(product.price.replace("$", "")) || 0)
+            }, 0)
+            .toFixed(2),
         )
 
-        if (usersWithItems.length === 0) return 0
+        // If no items are assigned, return 0
+        if (totalSubtotal === 0) return 0
 
-        // Check if this user has items assigned
-        const userHasItems = products.some((product) => product.shares.some((share) => share.userId === userId))
+        // Calculate user's proportion of the total bill
+        const proportion = userSubtotal / totalSubtotal
 
-        return userHasItems ? Number((tipAmount / usersWithItems.length).toFixed(2)) : 0
+        // Calculate user's share of the tip (proportional to their subtotal)
+        return Number((proportion * tipAmount).toFixed(2))
       } catch (error) {
         console.error("Error calculating user tip share:", error)
         return 0
       }
     },
-    [tip, users, products],
+    [tip, getUserSubtotal, products],
   )
 
-  // Calculate user's share of service charge (split equally among users with items)
+  // Calculate user's share of service charge based on their proportion of the subtotal (weighted)
   const getUserServiceChargeShare = useCallback(
     (userId: string) => {
       try {
         const serviceChargeAmount = Number.parseFloat(serviceCharge) || 0
         if (serviceChargeAmount === 0) return 0
 
-        // Service charge is split equally among all users who have items assigned
-        const usersWithItems = users.filter((user) =>
-          products.some((product) => product.shares.some((share) => share.userId === user.id)),
+        const userSubtotal = getUserSubtotal(userId)
+        const totalSubtotal = Number(
+          products
+            .reduce((sum, product) => {
+              return sum + (Number.parseFloat(product.price.replace("$", "")) || 0)
+            }, 0)
+            .toFixed(2),
         )
 
-        if (usersWithItems.length === 0) return 0
+        // If no items are assigned, return 0
+        if (totalSubtotal === 0) return 0
 
-        // Check if this user has items assigned
-        const userHasItems = products.some((product) => product.shares.some((share) => share.userId === userId))
+        // Calculate user's proportion of the total bill
+        const proportion = userSubtotal / totalSubtotal
 
-        return userHasItems ? Number((serviceChargeAmount / usersWithItems.length).toFixed(2)) : 0
+        // Calculate user's share of the service charge (proportional to their subtotal)
+        return Number((proportion * serviceChargeAmount).toFixed(2))
       } catch (error) {
         console.error("Error calculating user service charge share:", error)
         return 0
       }
     },
-    [serviceCharge, users, products],
+    [serviceCharge, getUserSubtotal, products],
   )
 
   // Get user's total including their share of tax, discount, tip, and service charge

@@ -1,10 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Edit3, Check, X } from "lucide-react"
+import { Edit3, Check, X, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 
 interface TaxInfo {
   rate: number
@@ -105,126 +106,185 @@ export function EditableTotal({
 
   if (isEditing) {
     return (
-      <div className="space-y-4 p-4 border rounded-lg bg-muted/10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-          <div>
-            <Label htmlFor="edit-subtotal" className="text-sm font-medium">
-              Subtotal ($)
-            </Label>
-            <Input
-              id="edit-subtotal"
-              type="number"
-              min="0"
-              step="0.01"
-              value={tempSubtotal}
-              onChange={(e) => {
-                setTempSubtotal(e.target.value)
-                setTimeout(recalculateFromSubtotalTaxAndCharges, 0)
-              }}
-              className="mt-1"
-            />
+      <TooltipProvider>
+        <div className="space-y-4 p-4 border rounded-lg bg-muted/10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div>
+              <Label htmlFor="edit-subtotal" className="text-sm font-medium">
+                Subtotal ($)
+              </Label>
+              <Input
+                id="edit-subtotal"
+                type="number"
+                min="0"
+                step="0.01"
+                value={tempSubtotal}
+                onChange={(e) => {
+                  setTempSubtotal(e.target.value)
+                  setTimeout(recalculateFromSubtotalTaxAndCharges, 0)
+                }}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center gap-1">
+                <Label htmlFor="edit-tax-rate" className="text-sm font-medium">
+                  Tax Rate (%)
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Tax is distributed proportionally based on each person's item costs</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Input
+                id="edit-tax-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={tempTaxRate}
+                onChange={(e) => {
+                  setTempTaxRate(e.target.value)
+                  setTimeout(recalculateFromSubtotalTaxAndCharges, 0)
+                }}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center gap-1">
+                <Label htmlFor="edit-discount" className="text-sm font-medium">
+                  Discount ($)
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Discount is distributed proportionally based on each person's item costs</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Input
+                id="edit-discount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={tempDiscount}
+                onChange={(e) => {
+                  setTempDiscount(e.target.value)
+                  setTimeout(recalculateFromSubtotalTaxAndCharges, 0)
+                }}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center gap-1">
+                <Label htmlFor="edit-tip" className="text-sm font-medium">
+                  Tip ($)
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Tip is distributed proportionally based on each person's item costs</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Input
+                id="edit-tip"
+                type="number"
+                min="0"
+                step="0.01"
+                value={tempTip}
+                onChange={(e) => {
+                  setTempTip(e.target.value)
+                  setTimeout(recalculateFromSubtotalTaxAndCharges, 0)
+                }}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center gap-1">
+                <Label htmlFor="edit-service-charge" className="text-sm font-medium">
+                  Service Charge ($)
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Service charge is distributed proportionally based on each person's item costs</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Input
+                id="edit-service-charge"
+                type="number"
+                min="0"
+                step="0.01"
+                value={tempServiceCharge}
+                onChange={(e) => {
+                  setTempServiceCharge(e.target.value)
+                  setTimeout(recalculateFromSubtotalTaxAndCharges, 0)
+                }}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-total" className="text-sm font-medium">
+                Total ($)
+              </Label>
+              <Input
+                id="edit-total"
+                type="number"
+                min="0"
+                step="0.01"
+                value={tempTotal}
+                onChange={(e) => setTempTotal(e.target.value)}
+                className="mt-1"
+              />
+            </div>
           </div>
 
-          <div>
-            <Label htmlFor="edit-tax-rate" className="text-sm font-medium">
-              Tax Rate (%)
-            </Label>
-            <Input
-              id="edit-tax-rate"
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              value={tempTaxRate}
-              onChange={(e) => {
-                setTempTaxRate(e.target.value)
-                setTimeout(recalculateFromSubtotalTaxAndCharges, 0)
-              }}
-              className="mt-1"
-            />
+          {/* Distribution Method Info */}
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="text-sm text-blue-800 dark:text-blue-200">
+              <div className="font-medium mb-1">Distribution Methods:</div>
+              <div className="space-y-1 text-xs">
+                <div>
+                  • <strong>Tax, Discount, Tip, Service Charge:</strong> Split proportionally based on each person's
+                  item costs
+                </div>
+                <div>
+                  • <strong>Example:</strong> If someone has 30% of the items, they pay 30% of the tax/tip/service
+                  charge and get 30% of the discount
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <Label htmlFor="edit-discount" className="text-sm font-medium">
-              Discount ($)
-            </Label>
-            <Input
-              id="edit-discount"
-              type="number"
-              min="0"
-              step="0.01"
-              value={tempDiscount}
-              onChange={(e) => {
-                setTempDiscount(e.target.value)
-                setTimeout(recalculateFromSubtotalTaxAndCharges, 0)
-              }}
-              className="mt-1"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="edit-tip" className="text-sm font-medium">
-              Tip ($)
-            </Label>
-            <Input
-              id="edit-tip"
-              type="number"
-              min="0"
-              step="0.01"
-              value={tempTip}
-              onChange={(e) => {
-                setTempTip(e.target.value)
-                setTimeout(recalculateFromSubtotalTaxAndCharges, 0)
-              }}
-              className="mt-1"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="edit-service-charge" className="text-sm font-medium">
-              Service Charge ($)
-            </Label>
-            <Input
-              id="edit-service-charge"
-              type="number"
-              min="0"
-              step="0.01"
-              value={tempServiceCharge}
-              onChange={(e) => {
-                setTempServiceCharge(e.target.value)
-                setTimeout(recalculateFromSubtotalTaxAndCharges, 0)
-              }}
-              className="mt-1"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="edit-total" className="text-sm font-medium">
-              Total ($)
-            </Label>
-            <Input
-              id="edit-total"
-              type="number"
-              min="0"
-              step="0.01"
-              value={tempTotal}
-              onChange={(e) => setTempTotal(e.target.value)}
-              className="mt-1"
-            />
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" size="sm" onClick={handleCancel}>
+              <X className="h-4 w-4 mr-1" />
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSave}>
+              <Check className="h-4 w-4 mr-1" />
+              Save
+            </Button>
           </div>
         </div>
-
-        <div className="flex gap-2 justify-end">
-          <Button variant="outline" size="sm" onClick={handleCancel}>
-            <X className="h-4 w-4 mr-1" />
-            Cancel
-          </Button>
-          <Button size="sm" onClick={handleSave}>
-            <Check className="h-4 w-4 mr-1" />
-            Save
-          </Button>
-        </div>
-      </div>
+      </TooltipProvider>
     )
   }
 
